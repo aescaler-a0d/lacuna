@@ -2,8 +2,8 @@
  * @File: find.go
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-06-01 01:52:13
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 13:25:14
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -12,6 +12,16 @@ package find
 
 import (
 	"net"
+	"reflect"
+	"runtime"
+	"time"
+)
+
+var (
+	timeout  = 250 * time.Millisecond
+	attempts = 1
+	poolSize = 2 * runtime.NumCPU()
+	interval = 100 * time.Millisecond
 )
 
 type NetworkHosts map[string][]net.IP
@@ -85,4 +95,24 @@ func inc(ip net.IP) net.IP {
 		}
 	}
 	return incIP
+}
+
+func each(w net.IP, callback func(net.IP) error) error {
+	// adapted from http://play.golang.org/p/m8TNTtygK0
+	if err := callback(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ChanToSlice(ch interface{}) interface{} {
+	chv := reflect.ValueOf(ch)
+	slv := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(ch).Elem()), 0, 0)
+	for {
+		v, ok := chv.Recv()
+		if !ok {
+			return slv.Interface()
+		}
+		slv = reflect.Append(slv, v)
+	}
 }

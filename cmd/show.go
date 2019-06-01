@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:33:26
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 13:17:52
+ * @Time: 2019-06-01 13:23:02
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -50,7 +50,7 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "", "output format. (default \"human-readable\")")
+	showCmd.Flags().StringVarP(&outputFormat, "output", "o", "", "output format (default \"human-readable\")")
 }
 
 func showSubnet(s *net.IPNet) {
