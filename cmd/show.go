@@ -2,8 +2,8 @@
  * @File: show.go
  * @Date: 2019-05-30 17:33:26
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-06-01 03:18:28
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 13:17:52
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -25,8 +25,8 @@ var showCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Shows free IP addresses in a local subnet.",
 	Long: `Outputs free IP addresses in a local subnet.
-Defaults to human readable output, additional
-output can be configured using flags.`,
+Defaults to human readable output, can be configured 
+using flags.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if Debug {
 			showSubnet(&Subnet)

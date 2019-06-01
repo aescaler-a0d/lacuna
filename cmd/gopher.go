@@ -2,8 +2,8 @@
  * @File: gopher.go
  * @Date: 2019-05-30 17:31:09
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-05-31 23:47:01
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 13:19:58
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -81,7 +81,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVarP(&AwFile, "awfile", "a", "/var/arpwatch/arp.dat", "arpwatch data file")
-	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "d", false, "interface to scan on (default eno1 or eth0)")
+	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "d", false, "verbose output")
 	rootCmd.PersistentFlags().StringVarP(&NetwInterface, "interface", "i", "", "interface to scan on (default eno1 or eth0)")
 	rootCmd.PersistentFlags().StringVarP(&ArpFile, "arpfile", "r", "/proc/net/arp", "arp data file")
 	rootCmd.PersistentFlags().IPNetVarP(&Subnet, "subnet", "s", Subnet, "subnet to scan for free IPs (default interface's first ipv4 subnet)")
