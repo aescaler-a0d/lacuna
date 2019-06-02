@@ -2,8 +2,8 @@
  * @File: arp.go
  * @Date: 2019-05-31 03:02:03
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-05-31 12:43:07
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 19:56:21
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -12,7 +12,6 @@ package read
 
 import (
 	"bufio"
-	"log"
 	"net"
 	"os"
 	"strings"
@@ -24,10 +23,11 @@ type ArpData struct {
 	Iface   string
 }
 
-func ReadArpDataIntoStruct(s string) []ArpData {
+func ReadArpDataIntoStruct(s string) ([]ArpData, error) {
+	n := []ArpData{}
 	recs, err := readLines(s)
 	if err != nil {
-		log.Fatal(err)
+		return n, err
 	}
 	a := make([]ArpData, len(recs)-1)
 	for idx, val := range recs {
@@ -42,7 +42,7 @@ func ReadArpDataIntoStruct(s string) []ArpData {
 			a[idx-1].Iface = vf[5]
 		}
 	}
-	return a
+	return a, nil
 }
 
 func readLines(path string) ([]string, error) {

@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:47:27
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 13:25:19
+ * @Time: 2019-06-01 20:26:03
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -16,12 +16,11 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"time"
 
 	ping "github.com/sparrc/go-ping"
 )
 
-func PingHosts(s *net.IPNet, i string) ([]net.IP, error) {
+func PingHosts(s *net.IPNet, i string, debug bool) ([]net.IP, error) {
 	inf, err := net.InterfaceByName(i)
 	if err != nil {
 		return []net.IP{}, err
@@ -35,7 +34,7 @@ func PingHosts(s *net.IPNet, i string) ([]net.IP, error) {
 		nip, _, _ := net.ParseCIDR(ip)
 		if (strings.Count(ip, ":") < 2) && (s.Contains(nip)) {
 			// found first IP on interface i that is in subnet s
-			return PingHostsAsync(s, ip, inf.Name)
+			return PingHostsAsync(s, ip, inf.Name, debug)
 		}
 	}
 	// no IP found, return error
@@ -43,11 +42,12 @@ func PingHosts(s *net.IPNet, i string) ([]net.IP, error) {
 	return []net.IP{}, err
 }
 
-func PingHostsAsync(s *net.IPNet, b string, inf string) ([]net.IP, error) {
+func PingHostsAsync(s *net.IPNet, b string, inf string, debug bool) ([]net.IP, error) {
 	// parse CIDR arguments
+	sl := []net.IP{}
 	generator, err := HostsInSubnet(s)
 	if err != nil {
-		return []net.IP{}, err
+		return sl, err
 	}
 
 	// total := len(generator)
@@ -59,8 +59,11 @@ func PingHostsAsync(s *net.IPNet, b string, inf string) ([]net.IP, error) {
 	res := make(chan net.IP, poolSize)
 
 	for i := 0; i < poolSize; i++ {
-		go func() {
+		go func(thread int) {
 			for ip := range ips {
+				if debug {
+					fmt.Printf("IP: %v THREAD: %v\n", ip, thread)
+				}
 				var err error
 				pinger, err := ping.NewPinger(ip.String())
 				if err != nil {
@@ -76,7 +79,7 @@ func PingHostsAsync(s *net.IPNet, b string, inf string) ([]net.IP, error) {
 				}
 			}
 			wg.Done()
-		}()
+		}(i)
 	}
 
 	// printer
@@ -104,7 +107,6 @@ func PingHostsAsync(s *net.IPNet, b string, inf string) ([]net.IP, error) {
 	for _, g := range generator {
 		each(g, func(ip net.IP) error {
 			ips <- ip
-			time.Sleep(interval)
 			return nil
 		})
 	}
@@ -113,7 +115,7 @@ func PingHostsAsync(s *net.IPNet, b string, inf string) ([]net.IP, error) {
 	close(ips)
 	wg.Wait()
 	close(res)
-	sl := ChanToSlice(res).([]net.IP)
+	sl = ChanToSlice(res).([]net.IP)
 
 	return sl, nil
 }

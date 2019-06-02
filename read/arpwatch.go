@@ -2,8 +2,8 @@
  * @File: arpwatch.go
  * @Date: 2019-05-29 15:17:38
  * @OA:   Antonio Escalera
- * @CA:   antonioe
- * @Time: 2019-05-31 03:05:00
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 19:43:45
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -13,7 +13,6 @@ package read
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"net"
 	"strconv"
 )
@@ -25,10 +24,10 @@ type AWData struct {
 	Name    string
 }
 
-func ReadAWDataIntoStruct(s string) []AWData {
+func ReadAWDataIntoStruct(s string) ([]AWData, error) {
 	b, err := ioutil.ReadFile(s)
 	if err != nil {
-		log.Fatal(err)
+		return []AWData{}, err
 	}
 	c := bytes.NewReader(b)
 	r := NewFieldsReader(c)
@@ -36,7 +35,7 @@ func ReadAWDataIntoStruct(s string) []AWData {
 	r.FieldsPerRecord = -1
 	recs, err := r.ReadAll()
 	if err != nil {
-		log.Fatal(err)
+		return []AWData{}, err
 	}
 	a := make([]AWData, len(recs))
 
@@ -53,5 +52,5 @@ func ReadAWDataIntoStruct(s string) []AWData {
 			break
 		}
 	}
-	return a
+	return a, nil
 }

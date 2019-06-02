@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 13:25:14
+ * @Time: 2019-06-01 20:25:47
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	timeout  = 250 * time.Millisecond
+	timeout  = 100 * time.Millisecond
 	attempts = 1
 	poolSize = 2 * runtime.NumCPU()
 	interval = 100 * time.Millisecond
@@ -47,6 +47,33 @@ func FreeIPs(s *net.IPNet, n NetworkHosts) ([]net.IP, error) {
 	return ips, nil
 }
 
+// returns an array of hosts inside a given subnet
+func HostsInSubnet(s *net.IPNet) ([]net.IP, error) {
+	ip, ipnet, err := net.ParseCIDR(s.String())
+	if err != nil {
+		return []net.IP{}, err
+	}
+	var ips []net.IP
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); ip = inc(ip) {
+		ips = append(ips, ip)
+		//fmt.Printf("%v", ips)
+	}
+	// remove network address and broadcast address
+	return ips[1 : len(ips)-1], nil
+}
+
+func ChanToSlice(ch interface{}) interface{} {
+	chv := reflect.ValueOf(ch)
+	slv := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(ch).Elem()), 0, 0)
+	for {
+		v, ok := chv.Recv()
+		if !ok {
+			return slv.Interface()
+		}
+		slv = reflect.Append(slv, v)
+	}
+}
+
 // removes IPs in s from n
 func removeIPs(n []net.IP, s []net.IP) []net.IP {
 	for idx, val := range n {
@@ -69,21 +96,6 @@ func rem(s []net.IP, i int) []net.IP {
 	//return append(s[:i], s[i+1:]...)
 }
 
-// returns an array of hosts inside a given subnet
-func HostsInSubnet(s *net.IPNet) ([]net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(s.String())
-	if err != nil {
-		return []net.IP{}, err
-	}
-	var ips []net.IP
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); ip = inc(ip) {
-		ips = append(ips, ip)
-		//fmt.Printf("%v", ips)
-	}
-	// remove network address and broadcast address
-	return ips[1 : len(ips)-1], nil
-}
-
 // increments the ip address by 1
 func inc(ip net.IP) net.IP {
 	incIP := make([]byte, len(ip))
@@ -103,16 +115,4 @@ func each(w net.IP, callback func(net.IP) error) error {
 		return err
 	}
 	return nil
-}
-
-func ChanToSlice(ch interface{}) interface{} {
-	chv := reflect.ValueOf(ch)
-	slv := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(ch).Elem()), 0, 0)
-	for {
-		v, ok := chv.Recv()
-		if !ok {
-			return slv.Interface()
-		}
-		slv = reflect.Append(slv, v)
-	}
 }

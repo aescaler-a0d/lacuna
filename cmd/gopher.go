@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:31:09
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 13:19:58
+ * @Time: 2019-06-01 18:43:20
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -57,7 +57,12 @@ installs and configures it.
 `,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	//Run: func(cmd *cobra.Command, args []string) {
+	//	err := getHostFacts()
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -85,10 +90,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&NetwInterface, "interface", "i", "", "interface to scan on (default eno1 or eth0)")
 	rootCmd.PersistentFlags().StringVarP(&ArpFile, "arpfile", "r", "/proc/net/arp", "arp data file")
 	rootCmd.PersistentFlags().IPNetVarP(&Subnet, "subnet", "s", Subnet, "subnet to scan for free IPs (default interface's first ipv4 subnet)")
-	err := getHostFacts()
-	if err != nil {
-		fmt.Println(err)
-	}
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -139,7 +140,7 @@ func getInterfaceFirstNet(i *net.Interface) (net.IPNet, error) {
 }
 
 func getHostFacts() error {
-	default_ifaces := []string{"eno1", "eth0", "wlp2s0", "enp61s0u1u3u3"}
+	default_ifaces := []string{"eno1", "eth0", "wlp2s0", "enp61s0u1u3u3", "enp5s0f0"}
 	if (NetwInterface == "") && (Subnet.String() == "<nil>") {
 		def, err := getHostFirstInterface(default_ifaces)
 		if err != nil {

@@ -2,8 +2,8 @@
  * @File: arpwatch.go
  * @Date: 2019-05-30 17:47:47
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-05-31 03:13:37
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-01 19:48:19
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -17,13 +17,17 @@ import (
 	"github.com/angelofdeauth/gopher/read"
 )
 
-func ArpWatch(s *net.IPNet, a string) (n []net.IP) {
-	awd := read.ReadAWDataIntoStruct(a)
+func ArpWatch(s *net.IPNet, a string, debug bool) ([]net.IP, error) {
+	n := []net.IP{}
+	awd, err := read.ReadAWDataIntoStruct(a)
+	if err != nil {
+		return n, err
+	}
 	t := time.Now().Unix()
 	for _, v := range awd {
 		if t-v.Time < 15552000 {
 			n = append(n, v.Ipaddr)
 		}
 	}
-	return n
+	return n, nil
 }
