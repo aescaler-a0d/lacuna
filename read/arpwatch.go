@@ -3,7 +3,7 @@
  * @Date: 2019-05-29 15:17:38
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 19:43:45
+ * @Time: 2019-06-02 03:26:04
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strconv"
+	"time"
 )
 
 type AWData struct {
@@ -22,6 +23,21 @@ type AWData struct {
 	Ipaddr  net.IP
 	Time    int64
 	Name    string
+}
+
+func ReadAWDataIntoSlice(s string, debug bool) ([]net.IP, error) {
+	n := []net.IP{}
+	awd, err := ReadAWDataIntoStruct(s)
+	if err != nil {
+		return n, err
+	}
+	t := time.Now().Unix()
+	for _, v := range awd {
+		if t-v.Time < 15552000 {
+			n = append(n, v.Ipaddr)
+		}
+	}
+	return n, nil
 }
 
 func ReadAWDataIntoStruct(s string) ([]AWData, error) {

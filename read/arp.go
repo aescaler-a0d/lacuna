@@ -3,7 +3,7 @@
  * @Date: 2019-05-31 03:02:03
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 19:56:21
+ * @Time: 2019-06-02 03:11:41
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -23,9 +23,21 @@ type ArpData struct {
 	Iface   string
 }
 
-func ReadArpDataIntoStruct(s string) ([]ArpData, error) {
+func ReadArpDataIntoSlice(path string, debug bool) ([]net.IP, error) {
+	n := []net.IP{}
+	arp, err := ReadArpDataIntoStruct(path)
+	if err != nil {
+		return n, err
+	}
+	for _, v := range arp {
+		n = append(n, v.Ipaddr)
+	}
+	return n, nil
+}
+
+func ReadArpDataIntoStruct(path string) ([]ArpData, error) {
 	n := []ArpData{}
-	recs, err := readLines(s)
+	recs, err := readLines(path)
 	if err != nil {
 		return n, err
 	}

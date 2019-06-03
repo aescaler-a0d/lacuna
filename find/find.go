@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 20:25:47
+ * @Time: 2019-06-03 17:57:49
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -11,10 +11,14 @@
 package find
 
 import (
+	"errors"
+	"fmt"
 	"net"
-	"reflect"
 	"runtime"
+	"sync"
 	"time"
+
+	"github.com/angelofdeauth/gopher/read"
 )
 
 var (
@@ -24,95 +28,246 @@ var (
 	interval = 100 * time.Millisecond
 )
 
-type NetworkHosts map[string][]net.IP
-
-//type NetworkHosts struct {
-//	Arp      []net.IP
-//	Arpwatch []net.IP
-//	Arpwitch []net.IP
-//	Dns      []net.IP
-//	Ping     []net.IP
-//}
-
-// returns IP addresses in subnet.
-// Accepts subnet and struct of arrays of net.IP
-func FreeIPs(s *net.IPNet, n NetworkHosts) ([]net.IP, error) {
-	ips, err := HostsInSubnet(s)
-	if err != nil {
-		return []net.IP{}, err
-	}
-	for _, val := range n {
-		ips = removeIPs(ips, val)
-	}
-	return ips, nil
+type workFnc func(w workGenerator) error
+type workGenerator struct {
+	debug  bool
+	done   <-chan struct{}
+	filter []net.IP
+	i      chan net.IP
+	o      chan net.IP
+	s      *net.IPNet
+	thread int
+	wf     workFnc
+}
+type output struct {
+	data chan net.IP
+	errc chan error
 }
 
-// returns an array of hosts inside a given subnet
-func HostsInSubnet(s *net.IPNet) ([]net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(s.String())
-	if err != nil {
-		return []net.IP{}, err
+func newWorkGenerator(debug bool, done <-chan struct{}, filter []net.IP, s *net.IPNet, wf workFnc) workGenerator {
+	w := workGenerator{
+		debug:  debug,
+		done:   done,
+		filter: filter,
+		s:      s,
+		wf:     wf,
 	}
-	var ips []net.IP
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); ip = inc(ip) {
-		ips = append(ips, ip)
-		//fmt.Printf("%v", ips)
-	}
-	// remove network address and broadcast address
-	return ips[1 : len(ips)-1], nil
+	return w
+}
+func newOutput(data chan net.IP, errc chan error) output {
+	o := output{data: data, errc: errc}
+	return o
 }
 
-func ChanToSlice(ch interface{}) interface{} {
-	chv := reflect.ValueOf(ch)
-	slv := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(ch).Elem()), 0, 0)
-	for {
-		v, ok := chv.Recv()
-		if !ok {
-			return slv.Interface()
-		}
-		slv = reflect.Append(slv, v)
-	}
+func generateSubnetReader(w workGenerator) output {
+	o := newOutput(read.ReadSubnetIntoChan(w.s, w.done, w.debug))
+	return o
 }
+func generateWorkers(w workGenerator) output {
 
-// removes IPs in s from n
-func removeIPs(n []net.IP, s []net.IP) []net.IP {
-	for idx, val := range n {
-		for _, v := range s {
-			if val.Equal(v) {
-				n = rem(n, idx)
+	if w.debug {
+		fmt.Printf("Generating workers for workGenerator: %v\n", w)
+	}
+	// generate 1 subnet reader for every group of workers
+	s := generateSubnetReader(w)
+
+	// split subnet input chan from subnet err chan
+	i, serrc := s.data, s.errc
+
+	// set worker input to subnet input chan
+	w.i = i
+
+	// make worker output chan
+	w.o = make(chan net.IP)
+
+	// make worker error chan
+	errc := make(chan error, 1)
+
+	// make output from worker chans
+	o := newOutput(w.o, errc)
+
+	// create worker wait group
+	var wg sync.WaitGroup
+
+	// add poolSize to worker wait group
+	wg.Add(poolSize)
+
+	// create goroutines for worker function
+	for j := 0; j < poolSize; j++ {
+		go func(j int) {
+			w.thread = j
+			errc <- w.wf(w)
+			wg.Done()
+		}(j)
+	}
+
+	go func() {
+		for err := range serrc {
+			if err != nil {
+				errc <- err
 			}
 		}
+		wg.Wait()
+		close(w.o)
+		close(errc)
+	}()
+	return o
+}
+
+func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
+	done := make(chan struct{})
+	defer close(done)
+
+	var outSlice []output
+
+	// need to create buffered channel of size of file
+	// chunk file across readers
+	// and return the channel when the buffer is full.
+	arp, err := read.ReadArpDataIntoSlice(a, debug)
+	if err != nil {
+		return nil, err
 	}
-	return n
+	if debug {
+		fmt.Printf("Arp Filter: %v\n\nCount: %i", arp, len(arp))
+	}
+	aws, err := read.ReadAWDataIntoSlice(w, debug)
+	if err != nil {
+		return nil, err
+	}
+	if debug {
+		fmt.Printf("ArpWatch Filter: %v\n\nCount: %i", aws, len(aws))
+	}
+
+	// create a new work generator for ArpHosts
+	arpw := newWorkGenerator(debug, done, arp, s, ArpHosts)
+	// generate workers and return chans for data and err
+	arpo := generateWorkers(arpw)
+	// transform data
+	// currently not needed
+	//arpt := chanTransformer(arpo, arpw)
+	// add output to outSlice
+	outSlice = append(outSlice, arpo)
+
+	awsw := newWorkGenerator(debug, done, aws, s, ArpWatch)
+	awso := generateWorkers(awsw)
+	//awst := chanTransformer(awso, awsw)
+	outSlice = append(outSlice, awso)
+
+	// wait for pipeline to error or finish
+	alive, err := waitForPipeline(done, outSlice...)
+	if err != nil {
+		return nil, err
+	}
+	if len(alive) == 0 {
+		return nil, errors.New("Error: No hosts found in subnet")
+	}
+
+	dead, err := maskAliveHosts(done, alive, s, debug)
+	if err != nil {
+		return nil, err
+	}
+	if len(dead) == 0 {
+		return nil, errors.New("Error: No free IPs found in subnet")
+	}
+
+	return dead, nil
+
 }
 
-// removes net.IP at index i from s and returns the new slice
-func rem(s []net.IP, i int) []net.IP {
-	copy(s[i:], s[i+1:])
-	s[len(s)-1] = nil // or the zero value of T
-	s = s[:len(s)-1]
+func maskAliveHosts(done <-chan struct{}, alive []net.IP, s *net.IPNet, debug bool) ([]net.IP, error) {
+	sRW := newWorkGenerator(debug, done, nil, s, nil)
+	sRo := generateSubnetReader(sRW)
 
-	return s
-	//return append(s[:i], s[i+1:]...)
-}
-
-// increments the ip address by 1
-func inc(ip net.IP) net.IP {
-	incIP := make([]byte, len(ip))
-	copy(incIP, ip)
-	for j := len(incIP) - 1; j >= 0; j-- {
-		incIP[j]++
-		if incIP[j] > 0 {
-			break
+	// blocks until no subnetreader errors are found
+	for err := range sRo.errc {
+		if err != nil {
+			return nil, err
 		}
 	}
-	return incIP
+
+	// consumes subnetreader data into array
+	var sub []net.IP
+	for ip := range sRo.data {
+		var x bool
+		for _, h := range alive {
+			if ip.Equal(h) {
+				x = true
+			}
+		}
+		if x {
+			sub = append(sub, ip)
+		}
+	}
+	return sub, nil
+
 }
 
-func each(w net.IP, callback func(net.IP) error) error {
-	// adapted from http://play.golang.org/p/m8TNTtygK0
-	if err := callback(w); err != nil {
-		return err
+func waitForPipeline(done <-chan struct{}, o ...output) ([]net.IP, error) {
+	// waitForPipeline is blocked from outputing until
+	// all of the channels are closed
+	out := mergeChans(done, o...)
+	for err := range out.errc {
+		if err != nil {
+			return nil, err
+		}
 	}
-	return nil
+
+	var alive []net.IP
+	for ip := range out.data {
+		alive = append(alive, ip)
+	}
+
+	return alive, nil
 }
+
+func mergeChans(done <-chan struct{}, chans ...output) output {
+	var wg sync.WaitGroup
+	outdata, outerrc := make(chan net.IP, len(chans)), make(chan error, len(chans))
+	outoutput := newOutput(outdata, outerrc)
+	outp := func(c output) {
+		for {
+			select {
+			case outd := <-c.data:
+				outdata <- outd
+			case oute := <-c.errc:
+				outerrc <- oute
+			case <-done:
+				return
+			}
+
+		}
+		wg.Done()
+	}
+	wg.Add(len(chans))
+	for _, c := range chans {
+		go outp(c)
+	}
+
+	go func() {
+		wg.Wait()
+		close(outdata)
+		close(outerrc)
+	}()
+	return outoutput
+}
+
+//func chanTransformer(i output, w workGenerator) output {
+//	dc := make(chan net.IP)
+//	ec := make(chan error, 1)
+//	go func() {
+//		defer close(dc)
+//		defer close(ec)
+//		for d := range i {
+//			// Send the data to the output channel but return early
+//			// if the context has been cancelled.
+//			select {
+//			case dc <- d.data:
+//			case ec <- d.errc:
+//			case <-w.done:
+//				return
+//			}
+//		}
+//	}()
+//	o := newOutput(dc, ec)
+//	return o
+//}
