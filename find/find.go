@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-04 20:28:29
+ * @Time: 2019-06-05 15:02:06
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -27,103 +27,7 @@ var (
 	interval = 100 * time.Millisecond
 )
 
-type workFnc func(w workGenerator) error
-type workGenerator struct {
-	debug  bool
-	done   <-chan struct{}
-	filter []net.IP
-	i      chan net.IP
-	o      chan net.IP
-	s      *net.IPNet
-	thread int
-	wf     workFnc
-}
-type output struct {
-	data chan net.IP
-	errc chan error
-}
-
-func newWorkGenerator(debug bool, done <-chan struct{}, filter []net.IP, s *net.IPNet, wf workFnc) workGenerator {
-	w := workGenerator{
-		debug:  debug,
-		done:   done,
-		filter: filter,
-		s:      s,
-		wf:     wf,
-	}
-	return w
-}
-func newOutput(data chan net.IP, errc chan error) output {
-	o := output{data: data, errc: errc}
-	return o
-}
-
-func generateSubnetReader(w workGenerator) output {
-	o := newOutput(read.ReadSubnetIntoChan(w.s, w.done, w.debug))
-	return o
-}
-func generateWorkers(w workGenerator) output {
-
-	if w.debug {
-		fmt.Printf("Generating workers for workGenerator: %v\n\n", w.wf)
-	}
-	// generate 1 subnet reader for every group of workers
-	s := generateSubnetReader(w)
-
-	w.i = make(chan net.IP)
-	w.o = make(chan net.IP)
-
-	// set worker input to subnet input chan
-	go func() {
-		for ip := range s.data {
-			w.i <- ip
-		}
-	}()
-
-	// make worker error chan
-	errc := make(chan error, 1)
-
-	// read subnet error chan into worker error chan
-	go func() {
-		for err := range s.errc {
-			if err != nil {
-				errc <- err
-			}
-		}
-	}()
-
-	// make output from worker chans
-	o := newOutput(w.o, errc)
-
-	// create worker wait group
-	var wg sync.WaitGroup
-
-	// add poolSize to worker wait group
-	wg.Add(poolSize)
-
-	// create goroutines for worker function
-	// THIS ONE RIGHT HERE OFFICER
-	// for some reason this is giving me trouble.
-	for j := 0; j < poolSize; j++ {
-		go func(j int) {
-			w.thread = j
-			errc <- w.wf(w)
-			wg.Done()
-		}(j)
-	}
-
-	go func() {
-		wg.Wait()
-		fmt.Printf("Closing worker channels for worker %v\n", w.wf)
-		close(w.o)
-		close(errc)
-	}()
-	return o
-}
-
 func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
-	done := make(chan struct{})
-	defer close(done)
 
 	var outSlice []output
 
@@ -148,7 +52,7 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	}
 
 	// create a new work generator for ArpHosts
-	arpw := newWorkGenerator(debug, done, arp, s, ArpHosts)
+	arpw := newWorkGenerator(debug, arp, s, ArpHosts)
 	// generate workers and return chans for data and err
 	arpo := generateWorkers(arpw)
 	// transform data
@@ -157,13 +61,13 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	// add output to outSlice
 	outSlice = append(outSlice, arpo)
 
-	awsw := newWorkGenerator(debug, done, aws, s, ArpWatch)
+	awsw := newWorkGenerator(debug, aws, s, ArpWatch)
 	awso := generateWorkers(awsw)
 	//awst := chanTransformer(awso, awsw)
 	outSlice = append(outSlice, awso)
 
 	// wait for pipeline to error or finish
-	alive, err := waitForPipeline(done, debug, outSlice...)
+	alive, err := waitForPipeline(debug, outSlice...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +75,7 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 		return nil, errors.New("Error: No hosts found in subnet")
 	}
 
-	dead, err := maskAliveHosts(done, alive, s, debug)
+	dead, err := maskAliveHosts(alive, s, debug)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +87,7 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 
 }
 
-func waitForPipeline(done <-chan struct{}, debug bool, o ...output) ([]net.IP, error) {
+func waitForPipeline(debug bool, o ...output) ([]net.IP, error) {
 	// waitForPipeline is blocked from outputing until
 	// all of the channels are closed
 
@@ -196,8 +100,14 @@ func waitForPipeline(done <-chan struct{}, debug bool, o ...output) ([]net.IP, e
 		if err != nil {
 			return nil, err
 		}
+		if debug {
+			fmt.Printf("waitForPipeline ranging over err: %v\n", err)
+		}
 	}
 
+	if debug {
+		fmt.Printf("waitForPipeline finished err chan read")
+	}
 	var alive []net.IP
 	for ip := range out.data {
 		alive = append(alive, ip)
@@ -219,29 +129,41 @@ func multiplexChans(debug bool, channels ...output) output {
 
 	// Make one go per channel.
 	for i, c := range channels {
-		go func(c <-chan net.IP, i int) {
+		if debug {
+			fmt.Printf("starting mux worker: %v for data channel: %v\n", i, c.data)
+		}
+		go func(i int) {
 			// Pump it.
-			for x := range c {
+			for x := range c.data {
 				dch <- x
-				fmt.Printf("Sent %v to data channel output\n", x)
+				if debug {
+					fmt.Printf("Sent %v to data channel output\n", x)
+				}
 			}
 			// It closed.
 			dwg.Done()
-			fmt.Printf("Data wait group done called on mux worker %v\n", i)
-		}(c.data, i)
+			if debug {
+				fmt.Printf("Data wait group done called on mux worker %v\n", i)
+			}
+		}(i)
 	}
 
 	for i, c := range channels {
-		go func(c <-chan error, i int) {
+		if debug {
+			fmt.Printf("starting mux worker: %v for errc channel: %v\n", i, c.errc)
+		}
+		go func(i int) {
 			// Pump it.
-			for x := range c {
+			for x := range c.errc {
 				ech <- x
 				fmt.Printf("Sent %v to errc channel output\n", x)
 			}
 			// It closed.
 			ewg.Done()
-			fmt.Printf("Errc wait group done called on mux worker %v\n", i)
-		}(c.errc, i)
+			if debug {
+				fmt.Printf("Errc wait group done called on mux worker %v\n", i)
+			}
+		}(i)
 	}
 	// Close the channel when the pumping is finished.
 	go func() {
@@ -250,13 +172,13 @@ func multiplexChans(debug bool, channels ...output) output {
 		// Close.
 		close(dch)
 		if debug {
-			fmt.Printf("Close called on mux channel data")
+			fmt.Println("Close called on mux channel data")
 		}
 
 		ewg.Wait()
 		close(ech)
 		if debug {
-			fmt.Printf("Close called on mux channel errc")
+			fmt.Println("Close called on mux channel errc")
 		}
 	}()
 	return mout
@@ -296,8 +218,8 @@ func multiplexChans(debug bool, channels ...output) output {
 // 	return outoutput
 // }
 
-func maskAliveHosts(done <-chan struct{}, alive []net.IP, s *net.IPNet, debug bool) ([]net.IP, error) {
-	sRW := newWorkGenerator(debug, done, nil, s, nil)
+func maskAliveHosts(alive []net.IP, s *net.IPNet, debug bool) ([]net.IP, error) {
+	sRW := newWorkGenerator(debug, nil, s, nil)
 	sRo := generateSubnetReader(sRW)
 
 	// blocks until no subnetreader errors are found

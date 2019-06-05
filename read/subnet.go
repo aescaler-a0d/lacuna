@@ -3,7 +3,7 @@
  * @Date: 2019-06-02 01:02:57
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-04 16:54:46
+ * @Time: 2019-06-04 22:13:06
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -11,7 +11,6 @@
 package read
 
 import (
-	"errors"
 	"fmt"
 	"net"
 )
@@ -19,7 +18,7 @@ import (
 type SubnetFunc func(s *net.IPNet, ip net.IP, err error) error
 
 //func ReadSubnetIntoChans(s *net.IPNet, d <-chan struct{}, debug bool) (<-chan net.IP, <-chan error) {
-func ReadSubnetIntoChan(s *net.IPNet, d <-chan struct{}, debug bool) (chan net.IP, chan error) {
+func ReadSubnetIntoChan(s *net.IPNet, debug bool) (<-chan net.IP, <-chan error) {
 
 	if debug {
 		fmt.Printf("Reading subnet %v into chan\n\n", s)
@@ -29,17 +28,14 @@ func ReadSubnetIntoChan(s *net.IPNet, d <-chan struct{}, debug bool) (chan net.I
 	go func() { // HL
 		// Close the paths channel after Walk returns.
 		defer close(ips) // HL
+		defer close(errc)
 		// No select needed for this send, since errc is buffered.
 		errc <- HostsInSubnet(s, func(s *net.IPNet, ip net.IP, err error) error {
 			if err != nil {
 				return err
 			}
-			select {
-			case ips <- ip:
-				fmt.Printf("IP: %v read into input chan: %v\n", ip, ips)
-			case <-d:
-				return errors.New("Canceled")
-			}
+			ips <- ip
+			fmt.Printf("IP: %v read into input chan: %v\n", ip, ips)
 			return nil
 		})
 	}()
