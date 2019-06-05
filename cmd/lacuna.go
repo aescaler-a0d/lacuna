@@ -1,9 +1,9 @@
 /*
- * @File: gopher.go
+ * @File: lacuna.go
  * @Date: 2019-05-30 17:31:09
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-01 18:43:20
+ * @Time: 2019-06-04 20:32:10
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -31,9 +31,9 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "gopher",
+	Use:   "lacuna",
 	Short: "Find free IP addresses using arp, ping, and DNS.",
-	Long: `Gopher is a utility that can find free IP addresses
+	Long: `Lacuna is a utility that can find free IP addresses
 in a given subnet. It has smart defaults that just
 work if only one local network is configured. If
 multiple networks are configured, the first is chosen
@@ -41,18 +41,18 @@ by default. If multiple interfaces are configured
 with networks, the first numerical interface is 
 chosen by default.
 
-Gopher can parse arpwatch or arpwitch dat files
+Lacuna can parse arpwatch or arpwitch dat files
 to better analyze the network for free addresses,
 and will try to find them automatically. It is also
 p
 
-Gopher can also be configured as a REST api server.
-The Gopher OpenAPI spec can be found here:
-$$GOPHER_API_SPEC$$
+Lacuna can also be configured as a REST api server.
+The lacuna OpenAPI spec can be found here:
+$$lacuna_API_SPEC$$
 
-In daemonized/server mode, Gopher automatically 
+In daemonized/server mode, Lacuna automatically 
 parses arpwatch or arpwitch data files. In addition,
-if no arpwitch is configured, Gopher automatically 
+if no arpwitch is configured, lacuna automatically 
 installs and configures it.
 `,
 	// Uncomment the following line if your bare application
@@ -190,9 +190,9 @@ func getHostFacts() error {
 //			os.Exit(1)
 //		}
 //
-//		// Search config in home directory with name ".gopher" (without extension).
+//		// Search config in home directory with name ".lacuna" (without extension).
 //		viper.AddConfigPath(home)
-//		viper.SetConfigName(".gopher")
+//		viper.SetConfigName(".lacuna")
 //	}
 //
 //	viper.AutomaticEnv() // read in environment variables that match

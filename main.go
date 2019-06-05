@@ -2,15 +2,15 @@
  * @File: main.go
  * @Date: 2019-05-29 18:16:36
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-05-30 17:33:46
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-04 20:34:20
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
 
 package main
 
-import "github.com/angelofdeauth/gopher/cmd"
+import "github.com/angelofdeauth/lacuna/cmd"
 
 var (
 	VERSION = "v0.0.2"

@@ -3,7 +3,7 @@
  * @Date: 2019-06-02 01:02:57
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-03 17:59:27
+ * @Time: 2019-06-04 16:54:46
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -22,7 +22,7 @@ type SubnetFunc func(s *net.IPNet, ip net.IP, err error) error
 func ReadSubnetIntoChan(s *net.IPNet, d <-chan struct{}, debug bool) (chan net.IP, chan error) {
 
 	if debug {
-		fmt.Printf("Reading subnet %v into chan\n", s)
+		fmt.Printf("Reading subnet %v into chan\n\n", s)
 	}
 	ips := make(chan net.IP)
 	errc := make(chan error, 1)
@@ -36,6 +36,7 @@ func ReadSubnetIntoChan(s *net.IPNet, d <-chan struct{}, debug bool) (chan net.I
 			}
 			select {
 			case ips <- ip:
+				fmt.Printf("IP: %v read into input chan: %v\n", ip, ips)
 			case <-d:
 				return errors.New("Canceled")
 			}

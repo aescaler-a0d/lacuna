@@ -1,5 +1,5 @@
 {
-  "AppName": "gopher",
+  "AppName": "lacuna",
   "ConfigVersion": "0.9",
   "BuildSettings": {
     "LdFlags": "-s",

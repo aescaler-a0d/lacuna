@@ -2,8 +2,8 @@
  * @File: server.go
  * @Date: 2019-05-30 17:33:20
  * @OA:   antonioe
- * @CA:   antonioe
- * @Time: 2019-05-30 17:33:25
+ * @CA:   Antonio Escalera
+ * @Time: 2019-06-04 20:32:20
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -19,7 +19,7 @@ import (
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Runs Gopher as a REST API daemon.",
+	Short: "Runs lacuna as a REST API daemon.",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 

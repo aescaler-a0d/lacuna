@@ -1,6 +1,6 @@
 VERSION?=v0.0.2
 PATH_BUILD=build/
-FILE_COMMAND=gopher
+FILE_COMMAND=lacuna
 FILE_ARCH=linux_amd64
 
 build: clean

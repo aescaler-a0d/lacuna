@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:33:26
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-03 17:51:41
+ * @Time: 2019-06-04 20:32:30
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/angelofdeauth/gopher/find"
+	"github.com/angelofdeauth/lacuna/find"
 	"github.com/spf13/cobra"
 )
 
