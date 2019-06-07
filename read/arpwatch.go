@@ -3,7 +3,7 @@
  * @Date: 2019-05-29 15:17:38
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-02 03:26:04
+ * @Time: 2019-06-07 12:54:08
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -37,7 +37,8 @@ func ReadAWDataIntoSlice(s string, debug bool) ([]net.IP, error) {
 			n = append(n, v.Ipaddr)
 		}
 	}
-	return n, nil
+	r := unique(n)
+	return r, nil
 }
 
 func ReadAWDataIntoStruct(s string) ([]AWData, error) {

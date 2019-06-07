@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-05 15:02:06
+ * @Time: 2019-06-07 13:40:45
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -12,24 +12,25 @@ package find
 
 import (
 	"errors"
-	"fmt"
 	"net"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/angelofdeauth/lacuna/read"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
 	timeout  = 100 * time.Millisecond
 	attempts = 1
-	poolSize = 2 // * runtime.NumCPU()
+	poolSize = 2 * runtime.NumCPU()
 	interval = 100 * time.Millisecond
 )
 
 func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 
-	var outSlice []output
+	var outSlice []<-chan output
 
 	// need to create buffered channel of size of file
 	// chunk file across readers
@@ -39,7 +40,10 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 		return nil, err
 	}
 	if debug {
-		fmt.Printf("Arp Filter: %v\nCount: %v\n\n", arp, len(arp))
+		log.WithFields(log.Fields{
+			"ArpFilter": arp,
+			"Count":     len(arp),
+		}).Info("Arp Filter Returned")
 	}
 
 	//
@@ -48,11 +52,18 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 		return nil, err
 	}
 	if debug {
-		fmt.Printf("ArpWatch Filter: %v\nCount: %v\n\n", aws, len(aws))
+		log.WithFields(log.Fields{
+			"ArpWatchFilter": aws,
+			"Count":          len(aws),
+		}).Info("ArpWatch Filter Returned")
 	}
 
+	//fakew := newWorkGenerator(debug, []net.IP{}, "Debug", s, Debug)
+	//fakeo := generateWorkers(fakew)
+	//outSlice = append(outSlice, fakeo)
+
 	// create a new work generator for ArpHosts
-	arpw := newWorkGenerator(debug, arp, s, ArpHosts)
+	arpw := newWorkGenerator(debug, arp, "ArpHosts", s, ArpHosts)
 	// generate workers and return chans for data and err
 	arpo := generateWorkers(arpw)
 	// transform data
@@ -61,7 +72,7 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	// add output to outSlice
 	outSlice = append(outSlice, arpo)
 
-	awsw := newWorkGenerator(debug, aws, s, ArpWatch)
+	awsw := newWorkGenerator(debug, aws, "ArpWatch", s, ArpWatch)
 	awso := generateWorkers(awsw)
 	//awst := chanTransformer(awso, awsw)
 	outSlice = append(outSlice, awso)
@@ -74,6 +85,10 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	if len(alive) == 0 {
 		return nil, errors.New("Error: No hosts found in subnet")
 	}
+	log.WithFields(log.Fields{
+		"Alive": alive,
+		"Count": len(alive),
+	}).Info("waitForPipeline Returned")
 
 	dead, err := maskAliveHosts(alive, s, debug)
 	if err != nil {
@@ -84,161 +99,115 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	}
 
 	return dead, nil
-
 }
 
-func waitForPipeline(debug bool, o ...output) ([]net.IP, error) {
+func waitForPipeline(debug bool, o ...<-chan output) ([]net.IP, error) {
 	// waitForPipeline is blocked from outputing until
 	// all of the channels are closed
 
 	if debug {
-		fmt.Printf("waitForPipeline called for outputs: %v\n\n", o)
+		log.WithFields(log.Fields{
+			"Output": o,
+		}).Debugf("waitForPipeline called for output: %v\n", o)
 	}
 	out := multiplexChans(debug, o...)
 
-	for err := range out.errc {
-		if err != nil {
-			return nil, err
+	var alive []net.IP
+	for ip := range out {
+		if ip.errc != nil {
+			return nil, ip.errc
 		}
 		if debug {
-			fmt.Printf("waitForPipeline ranging over err: %v\n", err)
+			log.WithFields(log.Fields{
+				"IP": ip.data,
+			}).Tracef("waitForPipeline ranging over IP: %v\n", ip.data)
 		}
-	}
-
-	if debug {
-		fmt.Printf("waitForPipeline finished err chan read")
-	}
-	var alive []net.IP
-	for ip := range out.data {
-		alive = append(alive, ip)
+		alive = append(alive, ip.data)
 	}
 
 	return alive, nil
 }
 
-func multiplexChans(debug bool, channels ...output) output {
-	// Count down as each channel closes. When hits zero - close ch.
-	var dwg sync.WaitGroup
-	dwg.Add(len(channels))
-	var ewg sync.WaitGroup
-	ewg.Add(len(channels))
-	// The channel to output to.
-	dch := make(chan net.IP, len(channels))
-	ech := make(chan error, len(channels))
-	mout := newOutput(dch, ech)
+func multiplexChans(debug bool, workers ...<-chan output) <-chan output {
+	// init wait groups
+	var wg sync.WaitGroup
+	wg.Add(len(workers))
+
+	mout := make(chan output)
 
 	// Make one go per channel.
-	for i, c := range channels {
+	for i, c := range workers {
 		if debug {
-			fmt.Printf("starting mux worker: %v for data channel: %v\n", i, c.data)
+			log.WithFields(log.Fields{
+				"Worker":    i,
+				"InChannel": c,
+			}).Debugf("starting mux worker: %v for channel: %v\n", i, c)
 		}
-		go func(i int) {
+		go func(i int, c <-chan output) {
 			// Pump it.
-			for x := range c.data {
-				dch <- x
-				if debug {
-					fmt.Printf("Sent %v to data channel output\n", x)
+			for x := range c {
+				if x.data != nil {
+					xout := newOutput(x.data, nil)
+					mout <- xout
+					if debug {
+						log.WithFields(log.Fields{
+							"Worker":    i,
+							"InChannel": c,
+							"Data":      x.data,
+						}).Tracef("Mux worker %v: Sent data %v from channel %v to channel output\n", i, x.data, c)
+					}
+				}
+				if x.errc != nil {
+					xout := newOutput(nil, x.errc)
+					mout <- xout
+					if debug {
+						log.WithFields(log.Fields{
+							"Worker":    i,
+							"InChannel": c,
+							"Error":     x.errc,
+						}).Tracef("Mux worker %v: Sent error %v from channel %v to channel output\n", i, x.errc, c)
+					}
 				}
 			}
 			// It closed.
-			dwg.Done()
+			wg.Done()
 			if debug {
-				fmt.Printf("Data wait group done called on mux worker %v\n", i)
+				log.WithFields(log.Fields{
+					"Worker":    i,
+					"InChannel": c,
+				}).Debugf("Mux worker %v servicing channel %v wait group done\n", i, c)
 			}
-		}(i)
-	}
-
-	for i, c := range channels {
-		if debug {
-			fmt.Printf("starting mux worker: %v for errc channel: %v\n", i, c.errc)
-		}
-		go func(i int) {
-			// Pump it.
-			for x := range c.errc {
-				ech <- x
-				fmt.Printf("Sent %v to errc channel output\n", x)
-			}
-			// It closed.
-			ewg.Done()
-			if debug {
-				fmt.Printf("Errc wait group done called on mux worker %v\n", i)
-			}
-		}(i)
+		}(i, c)
 	}
 	// Close the channel when the pumping is finished.
 	go func() {
 		// Wait for everyone to be done.
-		dwg.Wait()
-		// Close.
-		close(dch)
-		if debug {
-			fmt.Println("Close called on mux channel data")
-		}
 
-		ewg.Wait()
-		close(ech)
+		wg.Wait()
+		// Close.
+		close(mout)
 		if debug {
-			fmt.Println("Close called on mux channel errc")
+			log.WithFields(log.Fields{}).Debug("Close called on mux channel output\n")
 		}
 	}()
 	return mout
 }
 
-// func multiplexChans(done <-chan struct{}, debug bool, chans ...output) output {
-// 	var wg sync.WaitGroup
-// 	outdata, outerrc := make(chan net.IP, len(chans)), make(chan error, len(chans))
-// 	outoutput := newOutput(outdata, outerrc)
-// 	outp := func(c output) {
-// 		for {
-// 			select {
-// 			case outdata <- c.data:
-// 				outdata <- outd
-// 			case oute := <-c.errc:
-// 				outerrc <- oute
-// 			case <-done:
-// 				if debug {
-// 					fmt.Println("")
-// 				}
-// 				return
-// 			}
-//
-// 		}
-// 		wg.Done()
-// 	}
-// 	wg.Add(len(chans))
-// 	for _, c := range chans {
-// 		go outp(c)
-// 	}
-//
-// 	go func() {
-// 		wg.Wait()
-// 		close(outdata)
-// 		close(outerrc)
-// 	}()
-// 	return outoutput
-// }
-
 func maskAliveHosts(alive []net.IP, s *net.IPNet, debug bool) ([]net.IP, error) {
-	sRW := newWorkGenerator(debug, nil, s, nil)
-	sRo := generateSubnetReader(sRW)
 
-	// blocks until no subnetreader errors are found
-	for err := range sRo.errc {
-		if err != nil {
-			return nil, err
-		}
-	}
+	//should rewrite this to use
+	sRo, _ := generateSubnetReader(newWorkGenerator(debug, nil, "maskAliveHosts", s, nil))
 
-	// consumes subnetreader data into array
 	var sub []net.IP
-	for ip := range sRo.data {
+
+	for ip := range sRo {
 		var x bool
 		for _, h := range alive {
-			if ip.Equal(h) {
+			if h.Equal(ip) || ip == nil {
 				x = true
 			}
 		}
-		if x {
+		if !x {
 			sub = append(sub, ip)
 		}
 	}

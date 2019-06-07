@@ -3,7 +3,7 @@
  * @Date: 2019-06-02 01:02:57
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-04 22:13:06
+ * @Time: 2019-06-06 13:42:51
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -11,7 +11,6 @@
 package read
 
 import (
-	"fmt"
 	"net"
 )
 
@@ -21,7 +20,7 @@ type SubnetFunc func(s *net.IPNet, ip net.IP, err error) error
 func ReadSubnetIntoChan(s *net.IPNet, debug bool) (<-chan net.IP, <-chan error) {
 
 	if debug {
-		fmt.Printf("Reading subnet %v into chan\n\n", s)
+		//fmt.Printf("Reading subnet %v into chan\n\n", s)
 	}
 	ips := make(chan net.IP)
 	errc := make(chan error, 1)
@@ -35,7 +34,7 @@ func ReadSubnetIntoChan(s *net.IPNet, debug bool) (<-chan net.IP, <-chan error) 
 				return err
 			}
 			ips <- ip
-			fmt.Printf("IP: %v read into input chan: %v\n", ip, ips)
+			//fmt.Printf("IP: %v read into input chan: %v\n", ip, ips)
 			return nil
 		})
 	}()

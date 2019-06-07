@@ -3,7 +3,7 @@
  * @Date: 2019-05-31 03:02:03
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-02 03:11:41
+ * @Time: 2019-06-07 12:53:49
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -32,7 +32,8 @@ func ReadArpDataIntoSlice(path string, debug bool) ([]net.IP, error) {
 	for _, v := range arp {
 		n = append(n, v.Ipaddr)
 	}
-	return n, nil
+	r := unique(n)
+	return r, nil
 }
 
 func ReadArpDataIntoStruct(path string) ([]ArpData, error) {
