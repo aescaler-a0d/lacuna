@@ -3,7 +3,7 @@
  * @Date: 2019-06-05 11:21:18
  * @OA:   Antonio Escalera
  * @CA:   Antonio Escalera
- * @Time: 2019-06-07 13:40:02
+ * @Time: 2019-06-07 15:44:14
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -18,7 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type workFnc func(w workGenerator, ip net.IP) net.IP
+type workFnc func(w workGenerator, ip net.IP) (net.IP, error)
 type workGenerator struct {
 	debug  bool
 	filter []net.IP
@@ -61,7 +61,7 @@ func generateWorkers(w workGenerator) <-chan output {
 		//fmt.Printf("Generating workers for workGenerator: %v\n\n", w.wf)
 		log.WithFields(log.Fields{
 			"workGenerator": w.n,
-		}).Infof("Generating workers for workGenerator: %v\n", w.n)
+		}).Debugf("Generating workers for workGenerator: %v\n", w.n)
 	}
 	// generate 1 subnet reader for every group of workers
 	i, _ := generateSubnetReader(w)
@@ -89,7 +89,18 @@ func generateWorkers(w workGenerator) <-chan output {
 						"IP":     ip,
 					}).Tracef("Worker %v for workFn %v processing IP: %v\n", j, w.n, ip)
 				}
-				filtered := w.wf(w, ip)
+				filtered, err := w.wf(w, ip)
+				if err != nil {
+					errout := newOutput(nil, err)
+					o <- errout
+					if w.debug {
+						log.WithFields(log.Fields{
+							"Worker": j,
+							"Error":  err,
+							"O":      o,
+						}).Debugf("Worker %v sent Error: %v to output chan %v\n", j, err, o)
+					}
+				}
 				if w.debug {
 					log.WithFields(log.Fields{
 						"Worker":   j,
@@ -115,9 +126,11 @@ func generateWorkers(w workGenerator) <-chan output {
 
 	go func() {
 		wg.Wait()
-		log.WithFields(log.Fields{
-			"Name": w.n,
-		}).Infof("Closing worker channels for worker %v\n", w.n)
+		if w.debug {
+			log.WithFields(log.Fields{
+				"Name": w.n,
+			}).Debugf("Closing worker channels for worker %v\n", w.n)
+		}
 		close(o)
 	}()
 	return o

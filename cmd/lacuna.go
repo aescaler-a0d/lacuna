@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:31:09
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-04 20:32:10
+ * @Time: 2019-06-07 15:53:54
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -26,6 +26,7 @@ var (
 	Debug         bool
 	NetwInterface string
 	Subnet        net.IPNet
+	Verbosity     int
 	VERSION       string
 )
 
@@ -90,6 +91,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&NetwInterface, "interface", "i", "", "interface to scan on (default eno1 or eth0)")
 	rootCmd.PersistentFlags().StringVarP(&ArpFile, "arpfile", "r", "/proc/net/arp", "arp data file")
 	rootCmd.PersistentFlags().IPNetVarP(&Subnet, "subnet", "s", Subnet, "subnet to scan for free IPs (default interface's first ipv4 subnet)")
+	rootCmd.PersistentFlags().IntVarP(&Verbosity, "verbosity", "v", 0, "verbose output")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")

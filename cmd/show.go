@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:33:26
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-07 13:41:47
+ * @Time: 2019-06-07 15:53:01
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -36,6 +36,10 @@ using flags.`,
 			fmt.Println(err)
 		}
 
+		logLevelSlice := []log.Level{log.InfoLevel, log.DebugLevel, log.TraceLevel}
+
+		log.SetLevel(logLevelSlice[Verbosity])
+
 		//Shows the subnet being tested for free IPs
 		showSubnet(&Subnet)
 		showSubnetFreeIPs(&Subnet, ArpFile, AwFile, Debug)
@@ -59,7 +63,7 @@ func init() {
 func showSubnet(s *net.IPNet) {
 	log.WithFields(log.Fields{
 		"Subnet": s,
-	}).Info("", s)
+	}).Info("")
 }
 func showSubnetFreeIPs(s *net.IPNet, a string, w string, debug bool) {
 	ips, err := find.FreeIPs(s, a, w, debug)

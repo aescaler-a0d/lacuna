@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:47:47
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-07 13:44:10
+ * @Time: 2019-06-07 14:10:04
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -17,7 +17,7 @@ import (
 )
 
 // Sends hosts in ArpWatch to output chan.
-func ArpWatch(w workGenerator, ip net.IP) net.IP {
+func ArpWatch(w workGenerator, ip net.IP) (net.IP, error) {
 	if w.debug {
 		log.WithFields(log.Fields{
 			"Name":   w.n,
@@ -35,8 +35,8 @@ func ArpWatch(w workGenerator, ip net.IP) net.IP {
 					"IP":     ip,
 				}).Debugf("%v worker %v: IP in filter: %v\n", w.n, w.thread, ip)
 			}
-			return ip
+			return ip, nil
 		}
 	}
-	return nil
+	return nil, nil
 }

@@ -3,7 +3,7 @@
  * @Date: 2019-05-30 17:32:24
  * @OA:   antonioe
  * @CA:   Antonio Escalera
- * @Time: 2019-06-07 13:40:45
+ * @Time: 2019-06-07 15:42:10
  * @Mail: antonioe@wolfram.com
  * @Copy: Copyright © 2019 Antonio Escalera <aj@angelofdeauth.host>
  */
@@ -58,6 +58,32 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 		}).Info("ArpWatch Filter Returned")
 	}
 
+	dnsrw := newWorkGenerator(debug, []net.IP{}, "DNSRead", s, DnsHostsRead)
+	dnsro := generateWorkers(dnsrw)
+	dnsfilter, dnsrerr := waitForPipeline(debug, dnsro)
+	if dnsrerr != nil {
+		return nil, err
+	}
+	if debug {
+		log.WithFields(log.Fields{
+			"DNSFilter": dnsfilter,
+			"Count":     len(dnsfilter),
+		}).Info("DNS Filter Returned")
+	}
+
+	pingrw := newWorkGenerator(debug, []net.IP{}, "PingRead", s, PingHostsRead)
+	pingro := generateWorkers(pingrw)
+	pingfilter, pingrerr := waitForPipeline(debug, pingro)
+	if pingrerr != nil {
+		return nil, err
+	}
+	if debug {
+		log.WithFields(log.Fields{
+			"PingFilter": pingfilter,
+			"Count":      len(pingfilter),
+		}).Info("Ping Filter Returned")
+	}
+
 	//fakew := newWorkGenerator(debug, []net.IP{}, "Debug", s, Debug)
 	//fakeo := generateWorkers(fakew)
 	//outSlice = append(outSlice, fakeo)
@@ -66,16 +92,23 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	arpw := newWorkGenerator(debug, arp, "ArpHosts", s, ArpHosts)
 	// generate workers and return chans for data and err
 	arpo := generateWorkers(arpw)
-	// transform data
-	// currently not needed
-	//arpt := chanTransformer(arpo, arpw)
 	// add output to outSlice
 	outSlice = append(outSlice, arpo)
 
+	// create a new work generator for ArpWatch
 	awsw := newWorkGenerator(debug, aws, "ArpWatch", s, ArpWatch)
 	awso := generateWorkers(awsw)
-	//awst := chanTransformer(awso, awsw)
 	outSlice = append(outSlice, awso)
+
+	// create a new work generator for DNS
+	dnsw := newWorkGenerator(debug, dnsfilter, "DnsHosts", s, DnsHosts)
+	dnso := generateWorkers(dnsw)
+	outSlice = append(outSlice, dnso)
+
+	// create a new work generator for Ping
+	pingw := newWorkGenerator(debug, pingfilter, "PingHosts", s, PingHosts)
+	pingo := generateWorkers(pingw)
+	outSlice = append(outSlice, pingo)
 
 	// wait for pipeline to error or finish
 	alive, err := waitForPipeline(debug, outSlice...)
@@ -88,7 +121,7 @@ func FreeIPs(s *net.IPNet, a string, w string, debug bool) ([]net.IP, error) {
 	log.WithFields(log.Fields{
 		"Alive": alive,
 		"Count": len(alive),
-	}).Info("waitForPipeline Returned")
+	}).Debug("Alive Hosts Returned")
 
 	dead, err := maskAliveHosts(alive, s, debug)
 	if err != nil {
