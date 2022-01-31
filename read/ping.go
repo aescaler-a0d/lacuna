@@ -14,7 +14,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/sparrc/go-ping"
+	"github.com/go-ping/ping"
 )
 
 func PingHostnames(ip net.IP, attempts int, interval time.Duration, timeout time.Duration) (*ping.Pinger, error) {
