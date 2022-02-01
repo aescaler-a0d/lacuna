@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/angelofdeauth/lacuna/read"
+	"github.com/aescaler-a0d/lacuna/read"
 	log "github.com/sirupsen/logrus"
 )
 

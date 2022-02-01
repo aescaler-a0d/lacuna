@@ -10,7 +10,7 @@
 
 package main
 
-import "github.com/angelofdeauth/lacuna/cmd"
+import "github.com/aescaler-a0d/lacuna/cmd"
 
 var (
 	VERSION = "v0.0.2"

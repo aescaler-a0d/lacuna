@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/angelofdeauth/lacuna/find"
+	"github.com/aescaler-a0d/lacuna/find"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
